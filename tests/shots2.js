@@ -1,0 +1,106 @@
+'use strict';
+// Screenshots of special moments, staged through the test hook.
+//   node tests/shots2.js [outputFolder]
+const path = require('path');
+const fs = require('fs');
+const { launch, sleep } = require('./browser');
+
+(async () => {
+  const out = process.argv[2] || '/tmp/boxing-shots2';
+  fs.mkdirSync(out, { recursive: true });
+  const page = await launch();
+  const shot = (name) => page.screenshot(path.join(out, name + '.png'));
+  const js = (code) => page.eval('(() => { const B = __boxing, G = B.Game, M = G.match; ' + code + ' })()');
+  await page.goto();
+  await page.tap('ArrowDown');
+  await page.tap('Enter');                      // exhibition select
+  await sleep(500);
+  await shot('select');
+  await page.tap('ArrowRight');
+  await page.tap('ArrowRight');
+  await page.tap('ArrowRight');
+  await page.tap('Enter');                      // Cruz
+  await sleep(3200);
+  // Freeze the AI so we can stage poses.
+  await js('M.ai.decisionTimer = 1e9; M.ai.mode = "guard"; M.opponent.y = M.player.y + 105; M.coach.timer = 1e9;');
+  await sleep(300);
+  await js('startPunch(M, M.opponent, "cross", "right")');
+  await sleep(265);
+  await shot('incoming-cross');
+  await sleep(600);
+  await js('startPunch(M, M.opponent, "hook", "left")');
+  await sleep(280);
+  await shot('incoming-hook');
+  await sleep(700);
+  await page.key('Space', 'down');
+  await sleep(90);
+  await shot('duck');
+  await page.key('Space', 'up');
+  await sleep(700);
+  await page.key('KeyD', 'down');
+  await page.tap('Space');
+  await sleep(90);
+  await shot('slip');
+  await page.key('KeyD', 'up');
+  await sleep(700);
+  await js('M.opponent.blocking = false; M.ai.mode = "hold"; M.opponent.y = M.player.y + 80;');
+  await page.tap('KeyN');
+  await sleep(160);
+  await shot('uppercut');
+  await sleep(600);
+  await page.tap('KeyO');
+  await sleep(140);
+  await shot('body');
+  await sleep(800);
+  await js('M.coach.timer = 0; M.coach.window = 4');
+  await sleep(300);
+  await shot('coach');
+  await js('M.opponent.health = 1; M.luckyBonusReady = false; M.ai.mode = "press"; M.ai.passiveGuard = false; M.opponent.wantGuard = false; M.opponent.blocking = false; M.coach.active = false;');
+  await js('M.opponent.y = M.player.y + 80;');
+  await page.tap('KeyU');
+  await sleep(250);
+  await shot('ko-hit');
+  await sleep(1300);
+  await shot('knockdown');
+  await sleep(3000);
+  await shot('knockdown-count');
+  await sleep(6000);
+  await js('M.opponent.health = 100; M.clock = 1.5; M.ai.decisionTimer = 0;');
+  await sleep(2000);
+  await shot('round-end');
+  await page.tap('Escape');
+  await sleep(300);
+  await shot('pause');
+  await page.tap('ArrowDown'); await page.tap('ArrowDown'); await page.tap('ArrowDown');
+  await page.tap('Enter');
+  await sleep(300);
+  await shot('settings');
+  await page.tap('Escape');
+  await page.tap('Escape');
+  await sleep(300);
+  // Player knockdown and result
+  await js('G.startFight(); ');
+  await sleep(3000);
+  await js('M.ai.decisionTimer = 1e9; M.ai.mode="guard"; M.player.health = 1; M.opponent.y = M.player.y + 90; startPunch(M, M.opponent, "hook", "left");');
+  await sleep(1600);
+  await shot('player-down');
+  await js('M.phase = "fight"; M.result = null; finishMatch(M, M.opponent, "KO"); M.finished = true;');
+  await sleep(400);
+  await shot('result-loss');
+  // Championship
+  await js('G.mode = "career"; G.careerIndex = 2; G.careerWins = 2; G.startFight();');
+  await sleep(500);
+  await js('finishMatch(M, M.player, "KO"); M.finished = true;');
+  await sleep(2500);
+  await shot('champion');
+  await page.resize(1920, 820);
+  await sleep(400);
+  await shot('wide');
+  await page.resize(900, 1000);
+  await sleep(400);
+  await shot('tall');
+  const fps = await page.eval('Math.round(1 / __boxing.Loop.frameTime)');
+  console.log('fps estimate', fps);
+  console.log(page.logs.join('\n') || 'no console errors');
+  await page.close();
+})().catch((error) => { console.error(error); process.exit(1); });
